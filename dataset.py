@@ -14,13 +14,12 @@ def collate_fn(insts):
     ''' Pad the instance to the max seq length in batch '''
 
     max_len = max(len(inst) for inst in insts)
-    #max_len = 100
+    
+    batch_pos = np.array([[len(inst)] for inst in insts])
 
     batch_seq = np.array([
         inst + [Constants.PAD] * (max_len - len(inst))
         for inst in insts])
-    
-    batch_pos = np.array([[len(inst)] for inst in batch_seq])
     
     """
     batch_pos = np.array([

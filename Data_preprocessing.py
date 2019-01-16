@@ -24,7 +24,7 @@ def split_seq_pairs(seq_pairs_path, src_seq_path, tgt_seq_path, encoding='utf-8'
         with open(tgt_seq_path, 'w', encoding=encoding) as tgt:
             tgt.write('\n'.join(tgt_seq))
 """            
-def seqs_2_word(src_seq_path, tgt_seq_path, encoding, src_lang_type='eng', tgt_lang_type='ch'):
+def seqs_2_word(src_seq_path, tgt_seq_path, encoding, src_lang_type='en', tgt_lang_type='ch'):
     # --加载源语料与目标语料,返回分词后转化为list格式的语料
     src_seq2words = seq_2_word(src_seq_path, lang_type=src_lang_type)
     tgt_seq2words = seq_2_word(tgt_seq_path, lang_type=tgt_lang_type)
@@ -82,18 +82,22 @@ def pretrain_bpe_seq_2_index(seq_path, encoding='utf-8', lang_type='en'):
             bpemb_en = BPEmb(lang='en', vs=50000, dim=300)
             indexs = [bpemb_en.encode_ids_with_bos_eos(line.strip().lower()) \
                      for line in lines if line.strip()]
-            words = ['<blank>'] + bpemb_en.words
         elif lang_type == 'ch':
             bpemb_zh = BPEmb(lang='zh', vs=50000, dim=300)
             indexs = [bpemb_zh.encode_ids_with_bos_eos(line.strip()) \
                      for line in lines if line.strip()]
-            words = ['<blank>'] + bpemb_zh.words
         else:
             print('<Warning> Don’t support this language!')
             exit()
         indexs = [[i+1 for i in index]for index in indexs]
-        word_dict = {word:idx for idx,word in enumerate(words)}
-    return indexs, word_dict
+    return indexs
+
+
+def pretrain_bpe_vocab(lang_type='en'):
+    bpemb_lang = BPEmb(lang=lang_type, vs=50000, dim=300)
+    words = ['<blank>'] + bpemb_lang.words
+    word_dict = {word:idx for idx,word in enumerate(words)}
+    return word_dict
 
         
 class CreateDict:
@@ -105,7 +109,7 @@ class CreateDict:
         self.word_count = {}
         self.n_words = 4 # Count PAD、UNK、BOS、EOS
 
-    def add_seq_path(self, seq_path, encoding='utf-8', lang_type='eng'):
+    def add_seq_path(self, seq_path, encoding='utf-8', lang_type='en'):
         """通过语料文件创建字典"""
         with open(seq_path, encoding=encoding) as f:
             lines = f.readlines()
@@ -119,9 +123,9 @@ class CreateDict:
                 if word:
                     self.add_word(word)
     
-    def add_seq(self, seq, lang_type='eng'):
+    def add_seq(self, seq, lang_type='en'):
         """将语句转化为词"""
-        words = seq.split(' ') if lang_type == 'eng' else list(seq)
+        words = seq.split(' ') if lang_type == 'en' else list(seq)
         for word in words:
             if word:
                 self.add_word(word)
@@ -138,35 +142,38 @@ class CreateDict:
             
 
 
-def main():         
+def main():   
+
+    work_path = 'E:/data/machine_translate_ziyan/10/'
+    seq_pairs_path = work_path + 'data/cmn.txt'
+    src_seq_path = work_path + 'data/train_src.txt'
+    tgt_seq_path = work_path + 'data/train_tgt.txt'
+    save_data_path = work_path +'data/data_processed1.pth'
     
     parser = argparse.ArgumentParser()
     
     parser.add_argument('-split_seq_pairs', action='store_true')
-    parser.add_argument('-seq_pairs_path', type=str, default=None)
-    parser.add_argument('-src_seq_path', type=str, default=None)
-    parser.add_argument('-tgt_seq_path', type=str, default=None)
-    parser.add_argument('-save_data_path', type=str, default=None)
+    parser.add_argument('-seq_pairs_path', type=str, default=seq_pairs_path)
+    parser.add_argument('-src_seq_path', type=str, default=src_seq_path)
+    parser.add_argument('-tgt_seq_path', type=str, default=tgt_seq_path)
+    parser.add_argument('-save_data_path', type=str, default=save_data_path)
     parser.add_argument('-max_seq_len', type=int, default=100)
-    parser.add_argument('-pretrain_bpe', action='store_true')
+    parser.add_argument('-pretrain_bpe', action='store_false')
     
     opt = parser.parse_args()
     
-    work_path = 'E:/data/machine_translate_ziyan/10/'
-    opt.seq_pairs_path = work_path + 'data/cmn.txt'
-    opt.src_seq_path = work_path + 'data/train_src.txt'
-    opt.tgt_seq_path = work_path + 'data/train_tgt.txt'
-    opt.save_data_path = work_path +'data/data_processed.pth'
-    opt.pretrain_bpe = True
-    
+
     
     # --将双语料数据对文本转化为单语料文本
-    #split_seq_pairs(opt.seq_pairs_path, opt.src_seq_path, opt.tgt_seq_path) 
+    if opt.split_seq_pairs:
+        split_seq_pairs(opt.seq_pairs_path, opt.src_seq_path, opt.tgt_seq_path) 
     
     if opt.pretrain_bpe:
         # --将语料文本切分转化为（词、字）的list列表,创建词典
-        src_seq2idx, src_word2index = pretrain_bpe_seq_2_index(opt.src_seq_path, lang_type='en') 
-        tgt_seq2idx, tgt_word2index = pretrain_bpe_seq_2_index(opt.tgt_seq_path, lang_type='ch')
+        src_seq2idx = pretrain_bpe_seq_2_index(opt.src_seq_path, lang_type='en') 
+        tgt_seq2idx = pretrain_bpe_seq_2_index(opt.tgt_seq_path, lang_type='ch')
+        src_word2index = pretrain_bpe_vocab('en')
+        tgt_word2index = pretrain_bpe_vocab('zh')
         # --创建源语言与目标语言的词典
         src_dict, tgt_dict =  CreateDict('src_lang'), CreateDict('tgt_lang')
         src_dict.word2index = src_word2index

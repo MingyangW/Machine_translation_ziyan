@@ -274,9 +274,6 @@ class Transformer(nn.Module):
         
     def forward(self, src_seq, src_len, tgt_seq, tgt_len):
         context_atten_mask = padding_mask(src_seq, tgt_seq)
-        #print('src_seq',src_seq.size())
-        #print('tgt_seq',tgt_seq.size())
-        #print('context_atten_mask',context_atten_mask.size())
         output, enc_self_atten = self.encoder(src_seq, src_len)
         output, dec_self_atten, ctx_atten = self.decoder(tgt_seq, tgt_len, output, context_atten_mask)
         
